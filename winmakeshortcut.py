@@ -5,9 +5,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-def powershell_run(cmd):
-    proc = subprocess.run(["powershell", cmd], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+def sp_run(cmdlist):
+    proc = subprocess.run(cmdlist, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
     return proc.stdout.decode().strip(), proc.stderr.decode().strip()
+
+def powershell_run(cmd):
+    return sp_run(["powershell", cmd])
 
 class FileCreationError(Exception): pass
 
@@ -118,6 +121,34 @@ def find_pythonw():
         target = target.removesuffix('python.exe') + 'pythonw.exe'
     return target
 
+def findall_py_versions():
+    try:
+        stdout, stderr = sp_run(['py.exe', '-0'])
+        if stderr:
+            print("py.exe encountered an error:", sterr)
+            return
+        for line in stdout.splitlines():
+            versionstr = line.split()[0]
+            if '-V:' in versionstr:
+                version = versionstr.split(":")[1].strip()
+                yield version
+    except FileNotFoundError as e:
+        print("py.exe was not found")
+    except Exception as e:
+        print("an unknown error with py.exe occured")
+
+def get_py_executable(version):
+    try:
+        stdout, stderr = sp_run([f"py.exe", f"-{version}", "-c", "import sys;print(sys.executable)"])
+        if stderr:
+            print(f"Error parsing version {version}:", sterr)
+        else:
+            return stdout
+    except FileNotFoundError as e:
+        print("py.exe was not found")
+    except Exception as e:
+        print(f"Fatal error while parsing version {version}:", e)
+
 ### examples ###
 def demo1():
     # make a desktop shortcut that runs this file in a command line window
@@ -139,7 +170,7 @@ welcome to the shortcut creator
 1) make desktop shortcut to this program in cli
 2) start gui
 3) make desktop shortcut to /r/learnpython
-3) exit
+4) exit
 """
 def demomain():
     if len(sys.argv) > 1:
